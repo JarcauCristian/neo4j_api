@@ -1,12 +1,18 @@
+from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
-
 from neo4j_driver.driver import Neo4jDriver
-from neo4j import GraphDatabase
 from fastapi import FastAPI
 import uvicorn
 from starlette.responses import JSONResponse
 import os
 from dotenv import load_dotenv
+
+
+class Dataset(BaseModel):
+    name: str
+    belongs_to: str
+    url: str
+
 
 app = FastAPI()
 
@@ -73,6 +79,24 @@ async def get_all():
     return JSONResponse(status_code=200, content=formatted_result)
 
 
+@app.get("/categories")
+async def get_categories():
+    query = """
+            MATCH (n:Category)
+            RETURN n.name as node_name
+            """
+    result = driver.query(query)
+
+    formatted_result = []
+
+    for record in result:
+        node_name = record["node_name"]
+
+        formatted_result.append(node_name)
+
+    return JSONResponse(status_code=200, content=formatted_result)
+
+
 @app.post("/category/create")
 async def create_category(name: str):
     query = (
@@ -81,12 +105,54 @@ async def create_category(name: str):
         "RETURN id(n) AS node_id, n.name AS node_name"
     )
 
-    try:
-        driver.query(query, parameters={"name": name}, fetch_one=True)
-    except:
+    result = driver.query(query, parameters={"name": name}, fetch_one=True)
+    if not result:
         return JSONResponse(status_code=500, content="An error occurred when creating the category!")
 
-    return JSONResponse(status_code=200, content="Category created successfully!")
+    return JSONResponse(status_code=201, content="Category created successfully!")
+
+
+@app.post("/dataset/create")
+async def create_dataset(dataset: Dataset):
+    query = (
+        "MERGE(m:Category {name: $belonging})"
+        "MERGE (n:Dataset {name: $name, url: $url})-[:BELONGS_TO]->(m)"
+        "RETURN id(n) AS node_id, n.name AS node_name"
+    )
+
+    result = driver.query(query, parameters={"name": dataset.name.lower(),
+                                             "belonging": dataset.belongs_to.lower(),
+                                             "url": dataset.url},
+                          fetch_one=True)
+    if not result:
+        return JSONResponse(status_code=500, content="An error occurred when creating the category!")
+
+    return JSONResponse(status_code=201, content="Dataset created successfully!")
+
+
+@app.get("/datasets")
+async def get_datasets():
+    query = (
+        "MATCH (n:Dataset)"
+        "RETURN n.url AS url, n.name as name"
+    )
+
+    result = driver.query(query)
+    if not result:
+        return JSONResponse(status_code=500, content="An error occurred when getting the datasets!")
+
+    formatted_result = []
+
+    for record in result:
+        url = record["url"]
+        name = record["name"]
+
+        formatted_result.append({
+            "name": name,
+            "url": url
+        })
+
+    return JSONResponse(status_code=201, content=formatted_result)
 
 
 if __name__ == "__main__":
