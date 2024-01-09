@@ -117,9 +117,9 @@ async def create_category(name: str):
 @app.post("/dataset/create")
 async def create_dataset(dataset: Dataset):
     query = (
-        "MERGE(m:Category {name: $belonging})"
-        "MERGE (n:Dataset {name: $name, url: $url})-[:BELONGS_TO]->(m)"
-        "SET n += $properties"
+        "MERGE(m:Category {name: $belonging}) "
+        "MERGE (n:Dataset {name: $name, url: $url})-[:BELONGS_TO]->(m) "
+        "SET n += $properties "
         "RETURN id(n) AS node_id, n.name AS node_name"
     )
 
