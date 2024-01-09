@@ -123,8 +123,6 @@ async def create_dataset(dataset: Dataset):
         "RETURN id(n) AS node_id, n.name AS node_name"
     )
 
-    print(dataset.tags)
-
     result = driver.query(query, parameters={"name": dataset.name.lower(),
                                              "belonging": dataset.belongs_to.lower(),
                                              "url": dataset.url,
@@ -171,4 +169,4 @@ if __name__ == "__main__":
 
     driver = Neo4jDriver(uri=uri, username=username, password=password)
 
-    uvicorn.run(app, host="0.0.0.0", port=7000)
+    uvicorn.run(app, host="0.0.0.0")
