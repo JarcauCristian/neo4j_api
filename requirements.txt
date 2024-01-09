@@ -1,0 +1,6 @@
+fastapi==0.108.0
+neo4j==5.16.0
+pydantic==2.5.3
+python-dotenv==1.0.0
+starlette==0.34.0
+uvicorn==0.25.0
