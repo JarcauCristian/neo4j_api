@@ -5,6 +5,7 @@ from fastapi import FastAPI
 import uvicorn
 from starlette.responses import JSONResponse
 import os
+from typing import Dict
 from dotenv import load_dotenv
 
 
@@ -12,6 +13,7 @@ class Dataset(BaseModel):
     name: str
     belongs_to: str
     url: str
+    tags: Dict[str, str]
 
 
 app = FastAPI()
@@ -117,12 +119,14 @@ async def create_dataset(dataset: Dataset):
     query = (
         "MERGE(m:Category {name: $belonging})"
         "MERGE (n:Dataset {name: $name, url: $url})-[:BELONGS_TO]->(m)"
+        "SET n += $properties"
         "RETURN id(n) AS node_id, n.name AS node_name"
     )
 
     result = driver.query(query, parameters={"name": dataset.name.lower(),
                                              "belonging": dataset.belongs_to.lower(),
-                                             "url": dataset.url},
+                                             "url": dataset.url,
+                                             "properties": dataset.tags},
                           fetch_one=True)
     if not result:
         return JSONResponse(status_code=500, content="An error occurred when creating the category!")
@@ -134,7 +138,7 @@ async def create_dataset(dataset: Dataset):
 async def get_datasets():
     query = (
         "MATCH (n:Dataset)"
-        "RETURN n.url AS url, n.name as name"
+        "RETURN n AS n"
     )
 
     result = driver.query(query)
@@ -144,13 +148,10 @@ async def get_datasets():
     formatted_result = []
 
     for record in result:
-        url = record["url"]
-        name = record["name"]
-
-        formatted_result.append({
-            "name": name,
-            "url": url
-        })
+        tags = {}
+        for k, v in record["n"].items():
+            tags[k] = v
+        formatted_result.append(tags)
 
     return JSONResponse(status_code=201, content=formatted_result)
 
@@ -168,4 +169,4 @@ if __name__ == "__main__":
 
     driver = Neo4jDriver(uri=uri, username=username, password=password)
 
-    uvicorn.run(app, host="0.0.0.0")
+    uvicorn.run(app, host="0.0.0.0", port=7000)
