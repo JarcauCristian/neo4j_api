@@ -123,6 +123,8 @@ async def create_dataset(dataset: Dataset):
         "RETURN id(n) AS node_id, n.name AS node_name"
     )
 
+    print(dataset.tags)
+
     result = driver.query(query, parameters={"name": dataset.name.lower(),
                                              "belonging": dataset.belongs_to.lower(),
                                              "url": dataset.url,
