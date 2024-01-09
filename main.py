@@ -168,4 +168,4 @@ if __name__ == "__main__":
 
     driver = Neo4jDriver(uri=uri, username=username, password=password)
 
-    uvicorn.run(app, host="0.0.0.0", port=7000)
+    uvicorn.run(app, host="0.0.0.0")
