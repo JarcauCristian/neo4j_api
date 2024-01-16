@@ -14,6 +14,8 @@ class Dataset(BaseModel):
     belongs_to: str
     url: str
     tags: Dict[str, str]
+    user: str
+    description: str
 
 
 app = FastAPI()
@@ -46,8 +48,9 @@ async def get_all():
             WITH n, COLLECT(DISTINCT m) AS upper, COLLECT(DISTINCT upperNode) AS under_nodes
             RETURN n.name AS node_name, 
                    CASE WHEN SIZE(upper) > 0 THEN upper[0].name ELSE NULL END AS upper_node,
-                   CASE WHEN n.labels <> "Category" THEN "has_info" ELSE NULL END AS has_info,
-                   under_nodes
+                   CASE WHEN n.url <> "" THEN "has_info" ELSE NULL END AS has_info,
+                   under_nodes,
+                   labels(n) as label
             """
     result = driver.query(query)
 
@@ -56,6 +59,7 @@ async def get_all():
             "upper_node": None,
             "under_nodes": [],
             "name": "Base",
+            "label": "base",
             "hasInformation": False
         }
     ]
@@ -64,19 +68,34 @@ async def get_all():
         upper_node = record["upper_node"]
         under_nodes = record["under_nodes"]
         has = record["has_info"]
+        label = record["label"][0]
 
-        if upper_node == "Base":
+        if str(upper_node).lower() == "base":
             for index, node in enumerate(formatted_result):
                 if node["name"] == "Base":
                     formatted_result[index]["under_nodes"].append(node_name)
                     break
 
-        formatted_result.append({
-            "name": node_name,
-            "upper_node": upper_node,
-            "under_nodes": under_nodes,
-            "hasInformation": True if has == "has_info" else False
-        })
+        if len(under_nodes) > 0:
+            formatted_under_nodes = []
+            for under_node in under_nodes:
+                formatted_under_nodes.append(under_node["name"])
+
+            formatted_result.append({
+                "name": node_name,
+                "upper_node": upper_node,
+                "under_nodes": formatted_under_nodes,
+                "label": label.lower(),
+                "hasInformation": True if has == "has_info" else False
+            })
+        else:
+            formatted_result.append({
+                "name": node_name,
+                "upper_node": upper_node,
+                "under_nodes": under_nodes,
+                "label": label.lower(),
+                "hasInformation": True if has == "has_info" else False
+            })
 
     return JSONResponse(status_code=200, content=formatted_result)
 
@@ -94,7 +113,7 @@ async def get_categories():
     for record in result:
         node_name = record["node_name"]
 
-        formatted_result.append(node_name)
+        formatted_result.append(node_name.capitalize())
 
     return JSONResponse(status_code=200, content=formatted_result)
 
@@ -114,11 +133,26 @@ async def create_category(name: str):
     return JSONResponse(status_code=201, content="Category created successfully!")
 
 
+@app.delete("/category/delete")
+async def delete_category(name: str):
+    query = (
+        "MATCH (n: Category {name: $name}) "
+        "DETACH DELETE n "
+        "RETURN id(n) AS node_id"
+    )
+
+    result = driver.query(query, parameters={"name": name}, fetch_one=True)
+    if not result:
+        return JSONResponse(status_code=500, content="An error occurred when deleting the category!")
+
+    return JSONResponse(status_code=201, content="Category deleted successfully!")
+
+
 @app.post("/dataset/create")
 async def create_dataset(dataset: Dataset):
     query = (
         "MERGE(m:Category {name: $belonging}) "
-        "MERGE (n:Dataset {name: $name, url: $url})-[:BELONGS_TO]->(m) "
+        "MERGE (n:Dataset {name: $name, url: $url, user: $user, description: $description})-[:BELONGS_TO]->(m) "
         "SET n += $properties "
         "RETURN id(n) AS node_id, n.name AS node_name"
     )
@@ -126,6 +160,8 @@ async def create_dataset(dataset: Dataset):
     result = driver.query(query, parameters={"name": dataset.name.lower(),
                                              "belonging": dataset.belongs_to.lower(),
                                              "url": dataset.url,
+                                             "user": dataset.user,
+                                             "description": dataset.description,
                                              "properties": dataset.tags},
                           fetch_one=True)
     if not result:
@@ -134,14 +170,29 @@ async def create_dataset(dataset: Dataset):
     return JSONResponse(status_code=201, content="Dataset created successfully!")
 
 
-@app.get("/datasets")
-async def get_datasets():
+@app.delete("/dataset/delete")
+async def delete_dataset(name: str):
     query = (
-        "MATCH (n:Dataset)"
+        "MATCH (n: Dataset {name: $name}) "
+        "DETACH DELETE n "
+        "RETURN id(n) AS node_id"
+    )
+
+    result = driver.query(query, parameters={"name": name}, fetch_one=True)
+    if not result:
+        return JSONResponse(status_code=500, content="An error occurred when deleting the dataset!")
+
+    return JSONResponse(status_code=201, content="Dataset deleted successfully!")
+
+
+@app.get("/datasets")
+async def get_datasets(user: str):
+    query = (
+        "MATCH (n:Dataset {user: $user})"
         "RETURN n AS n"
     )
 
-    result = driver.query(query)
+    result = driver.query(query, parameters={"user": user})
     if not result:
         return JSONResponse(status_code=500, content="An error occurred when getting the datasets!")
 
@@ -169,4 +220,4 @@ if __name__ == "__main__":
 
     driver = Neo4jDriver(uri=uri, username=username, password=password)
 
-    uvicorn.run(app, host="0.0.0.0")
+    uvicorn.run(app, host="0.0.0.0", port=7000)
