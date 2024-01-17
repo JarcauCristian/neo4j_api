@@ -148,6 +148,25 @@ async def delete_category(name: str):
     return JSONResponse(status_code=201, content="Category deleted successfully!")
 
 
+@app.get("/dataset")
+async def get_dataset(name: str):
+    query = (
+        "MATCH (n: Dataset {name: $name}) "
+        "RETURN n as n"
+    )
+
+    result = driver.query(query, parameters={"name": name}, fetch_one=True)
+    if not result:
+        return JSONResponse(status_code=500, content="An error occurred when deleting the dataset!")
+
+    formatted_result = {}
+    for record in result:
+        for k, v in record.items():
+            formatted_result[k] = v
+
+    return JSONResponse(status_code=201, content=formatted_result)
+
+
 @app.post("/dataset/create")
 async def create_dataset(dataset: Dataset):
     query = (
