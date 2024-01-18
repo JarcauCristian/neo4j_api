@@ -157,14 +157,14 @@ async def get_dataset(name: str):
 
     result = driver.query(query, parameters={"name": name}, fetch_one=True)
     if not result:
-        return JSONResponse(status_code=500, content="An error occurred when deleting the dataset!")
+        return JSONResponse(status_code=500, content="An error occurred when getting the dataset!")
 
     formatted_result = {}
     for record in result:
         for k, v in record.items():
             formatted_result[k] = v
 
-    return JSONResponse(status_code=201, content=formatted_result)
+    return JSONResponse(status_code=200, content=formatted_result)
 
 
 @app.post("/dataset/create")
