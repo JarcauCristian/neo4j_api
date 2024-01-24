@@ -5,7 +5,7 @@ WORKDIR /app
 COPY . .
 
 ENV USER = neo4j
-ENV PASS = super_dooper_secret
+ENV PASS = password
 ENV URI = bolt://localhost:7687
 ENV INSIDE_DOCKER = true
 
