@@ -28,13 +28,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/")
+@app.get("/neo4j")
 async def entry():
     return JSONResponse(status_code=200, content="Server works!")
 
 
-@app.get("/all")
+@app.get("/neo4j/all")
 async def get_all():
     query = """
             MATCH (n)-[r]->(m)
@@ -94,7 +93,7 @@ async def get_all():
     return JSONResponse(status_code=200, content=formatted_result)
 
 
-@app.get("/categories")
+@app.get("/neo4j/categories")
 async def get_categories():
     query = """
             MATCH (n:Category)
@@ -112,7 +111,7 @@ async def get_categories():
     return JSONResponse(status_code=200, content=formatted_result)
 
 
-@app.post("/category/create")
+@app.post("/neo4j/category/create")
 async def create_category(name: str):
     query = (
         "MERGE(m:MainNode {name: 'Base'})"
@@ -127,7 +126,7 @@ async def create_category(name: str):
     return JSONResponse(status_code=201, content="Category created successfully!")
 
 
-@app.delete("/category/delete")
+@app.delete("/neo4j/category/delete")
 async def delete_category(name: str):
     query = (
         "MATCH (n: Category {name: $name}) "
@@ -142,7 +141,7 @@ async def delete_category(name: str):
     return JSONResponse(status_code=201, content="Category deleted successfully!")
 
 
-@app.get("/dataset")
+@app.get("/neo4j/dataset")
 async def get_dataset(name: str):
     query = (
         "MATCH (n: Dataset {name: $name}) "
@@ -161,7 +160,7 @@ async def get_dataset(name: str):
     return JSONResponse(status_code=200, content=formatted_result)
 
 
-@app.post("/dataset/create")
+@app.post("/neo4j/dataset/create")
 async def create_dataset(dataset: Dataset):
     query = (
         "MERGE(m:Category {name: $belonging}) "
@@ -183,7 +182,7 @@ async def create_dataset(dataset: Dataset):
     return JSONResponse(status_code=201, content="Dataset created successfully!")
 
 
-@app.delete("/dataset/delete")
+@app.delete("/neo4j/dataset/delete")
 async def delete_dataset(name: str):
     query = (
         "MATCH (n: Dataset {name: $name}) "
@@ -198,7 +197,7 @@ async def delete_dataset(name: str):
     return JSONResponse(status_code=201, content="Dataset deleted successfully!")
 
 
-@app.get("/datasets")
+@app.get("/neo4j/datasets")
 async def get_datasets(user: str):
     query = (
         "MATCH (n:Dataset {user: $user})"
