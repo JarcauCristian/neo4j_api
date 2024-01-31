@@ -1,12 +1,13 @@
-from pydantic import BaseModel
-from starlette.middleware.cors import CORSMiddleware
-from neo4j_driver.driver import Neo4jDriver
-from fastapi import FastAPI
-import uvicorn
-from starlette.responses import JSONResponse
 import os
+import uvicorn
+import requests
 from typing import Dict
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from fastapi import FastAPI, Header
+from neo4j_driver.driver import Neo4jDriver
+from starlette.responses import JSONResponse
+from starlette.middleware.cors import CORSMiddleware
 
 
 class Dataset(BaseModel):
@@ -33,8 +34,16 @@ async def entry():
     return JSONResponse(status_code=200, content="Server works!")
 
 
-@app.get("/neo4j/all")
-async def get_all():
+@app.get("/neo4j/all", tags=["GET"])
+async def get_all(authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
     query = """
             MATCH (n)-[r]->(m)
             OPTIONAL MATCH (n)<-[r2]-(upperNode)
@@ -94,7 +103,15 @@ async def get_all():
 
 
 @app.get("/neo4j/categories")
-async def get_categories():
+async def get_categories(authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
     query = """
             MATCH (n:Category)
             RETURN n.name as node_name
@@ -112,7 +129,15 @@ async def get_categories():
 
 
 @app.post("/neo4j/category/create")
-async def create_category(name: str):
+async def create_category(name: str, authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
     query = (
         "MERGE(m:MainNode {name: 'Base'})"
         "MERGE (n:Category {name: $name})-[:BELONGS_TO]->(m)"
@@ -127,7 +152,15 @@ async def create_category(name: str):
 
 
 @app.delete("/neo4j/category/delete")
-async def delete_category(name: str):
+async def delete_category(name: str, authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
     query = (
         "MATCH (n: Category {name: $name}) "
         "DETACH DELETE n "
@@ -142,7 +175,15 @@ async def delete_category(name: str):
 
 
 @app.get("/neo4j/dataset")
-async def get_dataset(name: str):
+async def get_dataset(name: str, authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
     query = (
         "MATCH (n: Dataset {name: $name}) "
         "RETURN n as n"
@@ -161,7 +202,15 @@ async def get_dataset(name: str):
 
 
 @app.post("/neo4j/dataset/create")
-async def create_dataset(dataset: Dataset):
+async def create_dataset(dataset: Dataset, authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
     query = (
         "MERGE(m:Category {name: $belonging}) "
         "MERGE (n:Dataset {name: $name, url: $url, user: $user, description: $description})-[:BELONGS_TO]->(m) "
@@ -183,7 +232,15 @@ async def create_dataset(dataset: Dataset):
 
 
 @app.delete("/neo4j/dataset/delete")
-async def delete_dataset(name: str):
+async def delete_dataset(name: str, authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
     query = (
         "MATCH (n: Dataset {name: $name}) "
         "DETACH DELETE n "
@@ -198,7 +255,15 @@ async def delete_dataset(name: str):
 
 
 @app.get("/neo4j/datasets")
-async def get_datasets(user: str):
+async def get_datasets(user: str, authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
     query = (
         "MATCH (n:Dataset {user: $user})"
         "RETURN n AS n"

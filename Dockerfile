@@ -8,6 +8,7 @@ ENV USER = neo4j
 ENV PASS = password
 ENV URI = bolt://localhost:7687
 ENV INSIDE_DOCKER = true
+ENV KEYCLOAK_URL = https://keycloak.sedimark.work/auth/realms/react-keycloak/protocol/openid-connect/userinfo
 
 RUN pip install -r requirements.txt
 
