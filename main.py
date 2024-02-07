@@ -40,7 +40,7 @@ async def get_all(authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
     token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
@@ -108,7 +108,7 @@ async def get_categories(authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
     token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
@@ -134,7 +134,7 @@ async def create_category(name: str, authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
     token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
@@ -157,7 +157,7 @@ async def delete_category(name: str, authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
     token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
@@ -180,7 +180,7 @@ async def get_dataset(name: str, authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
     token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
@@ -207,7 +207,7 @@ async def create_dataset(dataset: Dataset, authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
     token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
@@ -237,7 +237,7 @@ async def delete_dataset(name: str, authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
     token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
@@ -260,7 +260,7 @@ async def get_datasets(user: str, authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
     token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"}, verify=False)
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
@@ -281,7 +281,7 @@ async def get_datasets(user: str, authorization: str = Header(None)):
             tags[k] = v
         formatted_result.append(tags)
 
-    return JSONResponse(status_code=201, content=formatted_result)
+    return JSONResponse(status_code=200, content=formatted_result)
 
 
 if __name__ == "__main__":
