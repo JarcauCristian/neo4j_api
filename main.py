@@ -1,3 +1,4 @@
+import datetime
 import os
 import uvicorn
 import requests
@@ -17,6 +18,11 @@ class Dataset(BaseModel):
     tags: Dict[str, str]
     user: str
     description: str
+
+
+class DatasetUpdate(BaseModel):
+    name: str
+    user: str
 
 
 app = FastAPI()
@@ -52,6 +58,7 @@ async def get_all(authorization: str = Header(None)):
                    CASE WHEN SIZE(upper) > 0 THEN upper[0].name ELSE NULL END AS upper_node,
                    CASE WHEN n.url <> "" THEN "has_info" ELSE NULL END AS has_info,
                    under_nodes,
+                   n.user AS node_user,
                    labels(n) as label
             """
     result = driver.query(query)
@@ -67,6 +74,7 @@ async def get_all(authorization: str = Header(None)):
     ]
     for record in result:
         node_name = record["node_name"]
+        node_user = record["node_user"]
         upper_node = record["upper_node"]
         under_nodes = record["under_nodes"]
         has = record["has_info"]
@@ -85,6 +93,7 @@ async def get_all(authorization: str = Header(None)):
 
             formatted_result.append({
                 "name": node_name,
+                "user": node_user,
                 "upper_node": upper_node,
                 "under_nodes": formatted_under_nodes,
                 "label": label.lower(),
@@ -93,6 +102,7 @@ async def get_all(authorization: str = Header(None)):
         else:
             formatted_result.append({
                 "name": node_name,
+                "user": node_user,
                 "upper_node": upper_node,
                 "under_nodes": under_nodes,
                 "label": label.lower(),
@@ -213,7 +223,7 @@ async def create_dataset(dataset: Dataset, authorization: str = Header(None)):
 
     query = (
         "MERGE(m:Category {name: $belonging}) "
-        "MERGE (n:Dataset {name: $name, url: $url, user: $user, description: $description})-[:BELONGS_TO]->(m) "
+        "MERGE (n:Dataset {name: $name, url: $url, user: $user, description: $description, last_accessed: $last_accessed})-[:BELONGS_TO]->(m) "
         "SET n += $properties "
         "RETURN id(n) AS node_id, n.name AS node_name"
     )
@@ -223,12 +233,39 @@ async def create_dataset(dataset: Dataset, authorization: str = Header(None)):
                                              "url": dataset.url,
                                              "user": dataset.user,
                                              "description": dataset.description,
+                                             "last_accessed": str(datetime.datetime.now()),
                                              "properties": dataset.tags},
                           fetch_one=True)
     if not result:
         return JSONResponse(status_code=500, content="An error occurred when creating the category!")
 
     return JSONResponse(status_code=201, content="Dataset created successfully!")
+
+
+@app.put("/neo4j/dataset/update")
+async def update_dataset(dataset: DatasetUpdate, authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
+    query = (
+        "MATCH (n) WHERE n.name = $name AND n.user = $user "
+        "SET n.last_accessed = $new_access "
+        "RETURN n"
+    )
+
+    result = driver.query(query, parameters={"name": dataset.name.lower(),
+                                             "user": dataset.user,
+                                             "new_access": str(datetime.datetime.now())}, fetch_one=True)
+    
+    if not result:
+        return JSONResponse(status_code=500, content="An error occurred when creating the category!")
+
+    return JSONResponse(status_code=201, content="Dataset updated successfully!")
 
 
 @app.delete("/neo4j/dataset/delete")
