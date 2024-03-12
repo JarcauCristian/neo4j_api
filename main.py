@@ -1,7 +1,8 @@
-import datetime
 import os
+import json
 import uvicorn
 import requests
+import datetime
 from typing import Dict
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -59,6 +60,7 @@ async def get_all(authorization: str = Header(None)):
                    CASE WHEN n.url <> "" THEN "has_info" ELSE NULL END AS has_info,
                    under_nodes,
                    n.user AS node_user,
+                   CASE WHEN n.url <> "" THEN n.share_data ELSE true END AS share_data,
                    labels(n) as label
             """
     result = driver.query(query)
@@ -69,9 +71,13 @@ async def get_all(authorization: str = Header(None)):
             "under_nodes": [],
             "name": "Base",
             "label": "base",
+            "user": "",
             "hasInformation": False
         }
     ]
+
+    not_shared_data = []
+
     for record in result:
         node_name = record["node_name"]
         node_user = record["node_user"]
@@ -79,6 +85,11 @@ async def get_all(authorization: str = Header(None)):
         under_nodes = record["under_nodes"]
         has = record["has_info"]
         label = record["label"][0]
+        share_data = json.loads(record["share_data"].lower()) if isinstance(record["share_data"], str) else record["share_data"]
+
+        if not share_data:
+            not_shared_data.append(node_name)
+            continue
 
         if str(upper_node).lower() == "base":
             for index, node in enumerate(formatted_result):
@@ -89,7 +100,8 @@ async def get_all(authorization: str = Header(None)):
         if len(under_nodes) > 0:
             formatted_under_nodes = []
             for under_node in under_nodes:
-                formatted_under_nodes.append(under_node["name"])
+                if under_node["name"] not in not_shared_data:
+                    formatted_under_nodes.append(under_node["name"])
 
             formatted_result.append({
                 "name": node_name,
@@ -143,18 +155,23 @@ async def create_category(name: str, authorization: str = Header(None)):
     if authorization is None or not authorization.startswith("Bearer "):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
-    token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
-    if response.status_code != 200:
-        return JSONResponse(status_code=401, content="Unauthorized!")
-
+    if authorization.startswith("Bearer ") and "mage" not in authorization:
+        token = authorization.split(" ")[1]
+        response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
+        if response.status_code != 200:
+            return JSONResponse(status_code=401, content="Unauthorized!")
+    else:
+        token = authorization.split(" ")[1].split("_")[1]
+        if token != os.getenv("PASSWORD"):
+            return JSONResponse(status_code=401, content="Unauthorized!")
+            
     query = (
         "MERGE(m:MainNode {name: 'Base'})"
         "MERGE (n:Category {name: $name})-[:BELONGS_TO]->(m)"
         "RETURN id(n) AS node_id, n.name AS node_name"
     )
 
-    result = driver.query(query, parameters={"name": name}, fetch_one=True)
+    result = driver.query(query, parameters={"name": name.lower()}, fetch_one=True)
     if not result:
         return JSONResponse(status_code=500, content="An error occurred when creating the category!")
 
@@ -216,10 +233,15 @@ async def create_dataset(dataset: Dataset, authorization: str = Header(None)):
     if authorization is None or not authorization.startswith("Bearer "):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
-    token = authorization.split(" ")[1]
-    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
-    if response.status_code != 200:
-        return JSONResponse(status_code=401, content="Unauthorized!")
+    if authorization.startswith("Bearer ") and "mage" not in authorization:
+        token = authorization.split(" ")[1]
+        response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
+        if response.status_code != 200:
+            return JSONResponse(status_code=401, content="Unauthorized!")
+    else:
+        token = authorization.split(" ")[1].split("_")[1]
+        if token != os.getenv("PASSWORD"):
+            return JSONResponse(status_code=401, content="Unauthorized!")
 
     query = (
         "MERGE(m:Category {name: $belonging}) "
@@ -252,15 +274,17 @@ async def update_dataset(dataset: DatasetUpdate, authorization: str = Header(Non
     if response.status_code != 200:
         return JSONResponse(status_code=401, content="Unauthorized!")
 
+    print(dataset.name, dataset.user)
+
     query = (
         "MATCH (n) WHERE n.name = $name AND n.user = $user "
-        "SET n.last_accessed = $new_access "
+        "SET n.last_accessed = $last_accessed "
         "RETURN n"
     )
 
     result = driver.query(query, parameters={"name": dataset.name.lower(),
                                              "user": dataset.user,
-                                             "new_access": str(datetime.datetime.now())}, fetch_one=True)
+                                             "last_accessed": str(datetime.datetime.now())}, fetch_one=True)
     
     if not result:
         return JSONResponse(status_code=500, content="An error occurred when creating the category!")
@@ -269,7 +293,7 @@ async def update_dataset(dataset: DatasetUpdate, authorization: str = Header(Non
 
 
 @app.delete("/neo4j/dataset/delete")
-async def delete_dataset(name: str, authorization: str = Header(None)):
+async def delete_dataset(name: str, user: str, authorization: str = Header(None)):
     if authorization is None or not authorization.startswith("Bearer "):
         return JSONResponse(status_code=401, content="Unauthorized!")
     
@@ -279,12 +303,14 @@ async def delete_dataset(name: str, authorization: str = Header(None)):
         return JSONResponse(status_code=401, content="Unauthorized!")
 
     query = (
-        "MATCH (n: Dataset {name: $name}) "
+        "MATCH (n: Dataset {name: $name, user:$user}) "
+        "WITH n, id(n) AS node_id "
         "DETACH DELETE n "
-        "RETURN id(n) AS node_id"
+        "RETURN node_id"
     )
 
-    result = driver.query(query, parameters={"name": name}, fetch_one=True)
+    result = driver.query(query, parameters={"name": name, 
+                                             "user": user}, fetch_one=True)
     if not result:
         return JSONResponse(status_code=500, content="An error occurred when deleting the dataset!")
 
@@ -321,6 +347,36 @@ async def get_datasets(user: str, authorization: str = Header(None)):
     return JSONResponse(status_code=200, content=formatted_result)
 
 
+@app.get("/neo4j/datasets/all")
+async def get_datasets(authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content="Unauthorized!")
+    
+    token = authorization.split(" ")[1]
+    response = requests.get(os.getenv("KEYCLOAK_URL"), headers={"Authorization": f"Bearer {token}"})
+    if response.status_code != 200:
+        return JSONResponse(status_code=401, content="Unauthorized!")
+
+    query = (
+        "MATCH (n:Dataset)"
+        "RETURN n AS n"
+    )
+
+    result = driver.query(query)
+    if not result:
+        return JSONResponse(status_code=500, content="An error occurred when getting the datasets!")
+
+    formatted_result = []
+
+    for record in result:
+        tags = {}
+        for k, v in record["n"].items():
+            tags[k] = v
+        formatted_result.append(tags)
+
+    return JSONResponse(status_code=200, content=formatted_result)
+
+
 if __name__ == "__main__":
     if os.getenv("INSIDE_DOCKER") is not None:
         username = os.getenv("USER")
@@ -328,7 +384,7 @@ if __name__ == "__main__":
         uri = os.getenv("URI")
     else:
         load_dotenv()
-        username = os.getenv("USER")
+        username = os.getenv("USERNAME")
         password = os.getenv("PASS")
         uri = os.getenv("URI")
 
