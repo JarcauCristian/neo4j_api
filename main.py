@@ -379,14 +379,11 @@ async def get_datasets(authorization: str = Header(None)):
 
 if __name__ == "__main__":
     if os.getenv("INSIDE_DOCKER") is not None:
-        username = os.getenv("USER")
-        password = os.getenv("PASS")
-        uri = os.getenv("URI")
-    else:
         load_dotenv()
-        username = os.getenv("USERNAME")
-        password = os.getenv("PASS")
-        uri = os.getenv("URI")
+        
+    username = os.getenv("USER")
+    password = os.getenv("PASS")
+    uri = os.getenv("URI")
 
     driver = Neo4jDriver(uri=uri, username=username, password=password)
 
