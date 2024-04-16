@@ -244,6 +244,17 @@ async def create_dataset(dataset: Dataset, authorization: str = Header(None)):
             return JSONResponse(status_code=401, content="Unauthorized!")
 
     query = (
+        "MATCH (n:Dataset {name: $name, user: $user}) "
+        "DETACH DELETE n"
+    )
+
+    try:
+        driver.query(query, parameters={"name": dataset.name.lower(), "user": dataset.user}, fetch_one=True)
+    except Exception:
+        return JSONResponse("Could not delete the previous node!", status_code=500)
+
+
+    query = (
         "MERGE(m:Category {name: $belonging}) "
         "MERGE (n:Dataset {name: $name, url: $url, user: $user, description: $description, last_accessed: $last_accessed})-[:BELONGS_TO]->(m) "
         "SET n += $properties "
